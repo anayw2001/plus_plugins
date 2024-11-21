@@ -72,7 +72,9 @@ class DeviceInfoPlusWindowsPlugin extends DeviceInfoPlatform {
           path: r'SOFTWARE\Microsoft\SQMClient');
       final machineId = sqmClientKey.getValueAsString('MachineId') ?? '';
 
-      GetSystemInfo(systemInfo);
+      GetNativeSystemInfo(systemInfo);
+
+      final cpuArchitecture = deriveCpuArch(systemInfo);
 
       // Use `RtlGetVersion` from `ntdll.dll` to get the Windows version.
       RtlGetVersion(osVersionInfo);
@@ -108,11 +110,39 @@ class DeviceInfoPlusWindowsPlugin extends DeviceInfoPlatform {
         registeredOwner: registeredOwner,
         releaseId: releaseId,
         deviceId: machineId,
+        cpuArch: cpuArchitecture,
       );
       return data;
     } finally {
       free(systemInfo);
       free(osVersionInfo);
+    }
+  }
+
+  @visibleForTesting
+  String deriveCpuArch(Pointer<SYSTEM_INFO> systemInfo) {
+    final handle = GetCurrentProcess();
+    final pProcessMachine = calloc<USHORT>();
+    final pNativeMachine = calloc<USHORT>();
+    try {
+      IsWow64Process2(handle, pProcessMachine, pNativeMachine);
+      switch (pNativeMachine.value) {
+          case IMAGE_FILE_MACHINE_I386:
+            return 'i386';
+          case IMAGE_FILE_MACHINE_ARM:
+          case IMAGE_FILE_MACHINE_THUMB:
+          case IMAGE_FILE_MACHINE_ARMNT:
+            return 'arm';
+          case IMAGE_FILE_MACHINE_ARM64:
+            return 'arm64';
+		  case IMAGE_FILE_MACHINE_AMD64:
+			return 'amd64';
+          default:
+            return 'Unknown';
+      }
+    } finally {
+      free(pProcessMachine);
+      free(pNativeMachine);
     }
   }
 

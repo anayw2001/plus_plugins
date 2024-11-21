@@ -204,6 +204,7 @@ class _MyAppState extends State<MyApp> {
       'registeredOwner': data.registeredOwner,
       'releaseId': data.releaseId,
       'deviceId': data.deviceId,
+	  'cpuArch': data.cpuArch,
     };
   }
 
